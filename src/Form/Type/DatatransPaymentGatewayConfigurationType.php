@@ -27,8 +27,8 @@
 
 namespace Whatwedo\SyliusDatatransPaymentPlugin\Form\Type;
 
-use Doctrine\DBAL\Types\TextType;
 use Symfony\Component\Form\AbstractType;
+use Symfony\Component\Form\Extension\Core\Type\TextType;
 use Symfony\Component\Form\FormBuilderInterface;
 
 class DatatransPaymentGatewayConfigurationType extends AbstractType
@@ -36,7 +36,11 @@ class DatatransPaymentGatewayConfigurationType extends AbstractType
 
     public function buildForm(FormBuilderInterface $builder, array $options)
     {
-        $builder->add('api_key', TextType::class);
+        $builder
+            ->add('merchant_id', TextType::class)
+            ->add('endpoint', TextType::class)
+            ->add('sign', TextType::class)
+        ;
     }
 
 }

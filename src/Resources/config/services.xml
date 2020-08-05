@@ -4,12 +4,16 @@
     <services>
         <service id="whatwedo.datatrans_payment" class="Payum\Core\Bridge\Symfony\Builder\GatewayFactoryBuilder">
             <argument>Whatwedo\SyliusDatatransPaymentPlugin\Payum\DatatransPaymentGatewayFactory</argument>
-            <tag name="payum.gateway_factory_builder" factory="sylius_payment" />
+            <tag name="payum.gateway_factory_builder" factory="datatrans_payment" />
         </service>
 
         <service id="Whatwedo\SyliusDatatransPaymentPlugin\Form\Type\DatatransPaymentGatewayConfigurationType">
-            <tag name="sylius.gateway_configuration_type" type="sylius_payment" label="Datatrans Payment" />
+            <tag name="sylius.gateway_configuration_type" type="datatrans_payment" label="Datatrans Payment" />
             <tag name="form.type" />
+        </service>
+
+        <service id="Whatwedo\SyliusDatatransPaymentPlugin\Payum\Action\CaptureAction" public="true">
+            <tag name="payum.action" factory="datatrans_payment" alias="payum.action.capture" />
         </service>
     </services>
 </container>

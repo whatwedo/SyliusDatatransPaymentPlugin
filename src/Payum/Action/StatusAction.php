@@ -25,77 +25,67 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-namespace Whatwedo\SyliusDatatransPaymentPlugin\Payum;
+namespace Whatwedo\SyliusDatatransPaymentPlugin\Payum\Action;
 
+
+use Payum\Core\Action\ActionInterface;
+use Payum\Core\Exception\RequestNotSupportedException;
+use Payum\Core\Request\GetStatusInterface;
 use Sylius\Component\Core\Model\PaymentInterface as SyliusPaymentInterface;
 
-class DatatransApi
+class StatusAction implements ActionInterface
 {
 
     /**
-     * @var string $merchantId
+     * @var array $postParameters
      */
-    private $merchantId;
+    protected $postParameters;
 
     /**
-     * @var string $sign
+     * StatusAction constructor.
+     * @param array $postParameters
      */
-    private $sign;
-
-    /**
-     * @var string $endpoint
-     */
-    private $endpoint;
-
-    /**
-     * DatatransApi constructor.
-     * @param string $merchantId
-     * @param string $endpoint
-     * @param string $sign
-     */
-    public function __construct(string $merchantId, string $endpoint, string $sign)
+    public function __construct(array $postParameters)
     {
-        $this->merchantId = $merchantId;
-        $this->endpoint = $endpoint;
-        $this->sign = $sign;
+        $this->postParameters = $postParameters;
     }
 
-    public function getPostParams(SyliusPaymentInterface $payment, string $returnUrl)
+    public function execute($request)
     {
-        return [
-            'merchantId' => $this->merchantId,
-            'refno' => $payment->getOrder()->getNumber(),
-            'amount' => $payment->getAmount(),
-            'currency' => 'CHF',
-            'sign' => $this->sign,
-            'successUrl' => $returnUrl,
-            'cancelUrl' => $returnUrl,
-            'errorUrl' => $returnUrl,
-        ];
+        RequestNotSupportedException::assertSupports($this, $request);
+
+        /** @var SyliusPaymentInterface $payment */
+        $payment = $request->getFirstModel();
+        $payment->setDetails($this->postParameters);
+
+        if (isset($this->postParameters['status'])) {
+            $status = $this->postParameters['status'];
+            if ('success' === $status) {
+                $request->markCaptured();
+                return;
+            }
+
+            if ('error' === $status) {
+                $request->markFailed();
+                return;
+            }
+
+            if ('cancel' === $status) {
+                $request->markCanceled();
+                return;
+            }
+        }
+
+        // unexpected, therefore mark as canceled
+        $request->markCanceled();
     }
 
-    /**
-     * @return string
-     */
-    public function getEndpoint(): string
+    public function supports($request): bool
     {
-        return $this->endpoint;
-    }
-
-    /**
-     * @return string
-     */
-    public function getMerchantId(): string
-    {
-        return $this->merchantId;
-    }
-
-    /**
-     * @return string
-     */
-    public function getSign(): string
-    {
-        return $this->sign;
+        return
+            $request instanceof GetStatusInterface &&
+            $request->getFirstModel() instanceof SyliusPaymentInterface
+        ;
     }
 
 }

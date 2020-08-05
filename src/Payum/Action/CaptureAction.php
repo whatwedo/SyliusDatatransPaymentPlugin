@@ -25,77 +25,54 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-namespace Whatwedo\SyliusDatatransPaymentPlugin\Payum;
+namespace Whatwedo\SyliusDatatransPaymentPlugin\Payum\Action;
 
+use Payum\Core\Action\ActionInterface;
+use Payum\Core\ApiAwareInterface;
+use Payum\Core\Exception\RequestNotSupportedException;
+use Payum\Core\Exception\UnsupportedApiException;
+use Payum\Core\Reply\HttpPostRedirect;
+use Payum\Core\Request\Capture;
+use Whatwedo\SyliusDatatransPaymentPlugin\Payum\DatatransApi;
 use Sylius\Component\Core\Model\PaymentInterface as SyliusPaymentInterface;
 
-class DatatransApi
+class CaptureAction implements ActionInterface, ApiAwareInterface
 {
 
     /**
-     * @var string $merchantId
+     * @var DatatransApi $api
      */
-    private $merchantId;
+    private $api;
 
-    /**
-     * @var string $sign
-     */
-    private $sign;
-
-    /**
-     * @var string $endpoint
-     */
-    private $endpoint;
-
-    /**
-     * DatatransApi constructor.
-     * @param string $merchantId
-     * @param string $endpoint
-     * @param string $sign
-     */
-    public function __construct(string $merchantId, string $endpoint, string $sign)
+    public function execute($request)
     {
-        $this->merchantId = $merchantId;
-        $this->endpoint = $endpoint;
-        $this->sign = $sign;
+        RequestNotSupportedException::assertSupports($this, $request);
+
+        /** @var SyliusPaymentInterface $payment */
+        $payment = $request->getModel();
+
+        $returnUrl = $request->getToken()->getAfterUrl();
+
+        throw new HttpPostRedirect(
+            $this->api->getEndpoint(),
+            $this->api->getPostParams($payment, $returnUrl)
+        );
     }
 
-    public function getPostParams(SyliusPaymentInterface $payment, string $returnUrl)
+    public function supports($request)
     {
-        return [
-            'merchantId' => $this->merchantId,
-            'refno' => $payment->getOrder()->getNumber(),
-            'amount' => $payment->getAmount(),
-            'currency' => 'CHF',
-            'sign' => $this->sign,
-            'successUrl' => $returnUrl,
-            'cancelUrl' => $returnUrl,
-            'errorUrl' => $returnUrl,
-        ];
+        return
+            $request instanceof Capture &&
+            $request->getModel() instanceof SyliusPaymentInterface
+        ;
     }
 
-    /**
-     * @return string
-     */
-    public function getEndpoint(): string
+    public function setApi($api): void
     {
-        return $this->endpoint;
-    }
-
-    /**
-     * @return string
-     */
-    public function getMerchantId(): string
-    {
-        return $this->merchantId;
-    }
-
-    /**
-     * @return string
-     */
-    public function getSign(): string
-    {
-        return $this->sign;
+        if (!$api instanceof DatatransApi) {
+            throw new UnsupportedApiException('Not supported. Expected an instance of ' . DatatransApi::class);
+        }
+        $this->api = $api;
     }
 
 }

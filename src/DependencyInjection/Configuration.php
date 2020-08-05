@@ -19,7 +19,7 @@ final class Configuration implements ConfigurationInterface
             $rootNode = $treeBuilder->getRootNode();
         } else {
             // BC layer for symfony/config 4.1 and older
-            $rootNode = $treeBuilder->root('acme_sylius_example_plugin');
+            $rootNode = $treeBuilder->root('whatwedo_sylius_datatrans_payment_plugin');
         }
 
         return $treeBuilder;
