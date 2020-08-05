@@ -1,0 +1,27 @@
+version: '3.4' # Minimal docker-compose.yml compatibility
+services:
+  whatwedo_sylius_datatrans_payment_plugin_web: # Example web service
+    container_name: whatwedo_sylius_datatrans_payment_plugin_web
+    build:
+      context: "." # Build directory
+      target: dev # Build stage
+      args:
+        DDE_UID: ${DDE_UID} # Pass your UID (DDE_UID is set automatically)
+        DDE_GID: ${DDE_GID} # Pass your GID (DDE_GID is set automatically)
+    environment:
+      - VIRTUAL_HOST=whatwedo-sylius-datatrans-payment-plugin.test # Virtual host domain
+      - SSH_AUTH_SOCK=/tmp/ssh-agent/socket # Optional: Use shared ssh-agent
+    volumes:
+      - ssh-agent_socket-dir:/tmp/ssh-agent:ro # Optional: Use shared ssh-agent
+    hostname: whatwedo-sylius-datatrans-payment-plugin # Optional: Set hostname identical to VHOST configuration
+    domainname: test # Optional: Set domain identical to VHOST configuration
+
+networks: # Attach dde network
+  default:
+    external:
+      name: "dde"
+
+volumes:
+  ssh-agent_socket-dir: # Optional: Use shared ssh-agent
+    external:
+      name: dde_ssh-agent_socket-dir

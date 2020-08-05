@@ -1,0 +1,14 @@
+sync:
+  whatwedoSyliusDatatransPaymentPluginWebSync: # name of the sync
+    alpha: . # what folder to sync to container
+    beta: docker://whatwedo_sylius_datatrans_payment_plugin_web/var/www # container and folder in container
+    mode: two-way-safe # sync-mode; one-way-safe is unidirectional (https://mutagen.io/documentation/synchronization/)
+    ignore: # what to ignore
+      vcs: true
+      paths:
+        - .idea
+        - .git
+    configurationBeta:
+      permissions:
+        defaultOwner: "dde"
+        defaultGroup: "dde"

@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<container xmlns="http://symfony.com/schema/dic/services" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://symfony.com/schema/dic/services http://symfony.com/schema/dic/services/services-1.0.xsd">
+    <services>
+        <service id="whatwedo.datatrans_payment" class="Payum\Core\Bridge\Symfony\Builder\GatewayFactoryBuilder">
+            <argument>Whatwedo\SyliusDatatransPaymentPlugin\Payum\DatatransPaymentGatewayFactory</argument>
+            <tag name="payum.gateway_factory_builder" factory="sylius_payment" />
+        </service>
+
+        <service id="Whatwedo\SyliusDatatransPaymentPlugin\Form\Type\DatatransPaymentGatewayConfigurationType">
+            <tag name="sylius.gateway_configuration_type" type="sylius_payment" label="Datatrans Payment" />
+            <tag name="form.type" />
+        </service>
+    </services>
+</container>
