@@ -47,22 +47,20 @@ class CaptureAction implements ActionInterface, ApiAwareInterface
     public function execute($request)
     {
         RequestNotSupportedException::assertSupports($this, $request);
-
-        /** @var SyliusPaymentInterface $payment */
         $payment = $request->getModel();
-
         $returnUrl = $request->getToken()->getAfterUrl();
-
         $details = [
             'endpoint' => $this->api->getEndpoint(),
             'post_params' => $this->api->getPostParams($payment, $returnUrl),
         ];
         $payment->setDetails($details);
-
-        throw new HttpPostRedirect(
-            $details['endpoint'],
-            $details['post_params']
-        );
+        if (!$this->api->isGenerateLink()) {
+            /** @var SyliusPaymentInterface $payment */
+            throw new HttpPostRedirect(
+                $details['endpoint'],
+                $details['post_params']
+            );
+        }
     }
 
     public function supports($request)

@@ -1,0 +1,18 @@
+{% set wwd_pay_link = url('whatwedo_sylius_pay_from_link', {'payment':payment.id}) %}
+<div class="ui segment">
+    <small style="line-height: 20px">{{ wwd_pay_link }}</small>
+    <a href="#" onclick="
+        const el = document.createElement('textarea');
+        el.value = '{{ wwd_pay_link }}';
+        el.setAttribute('readonly', '');
+        el.style.position = 'absolute';
+        el.style.left = '-9999px';
+        document.body.appendChild(el);
+        el.select();
+        document.execCommand('copy');
+        document.body.removeChild(el);
+        return false;
+    ">
+        <button type="button" id="wwd-copy-admin-link" class="ui icon labeled tiny green fluid button"><i class="copy icon"></i> {{ 'sylius.ui.copy'|trans }}</button>
+    </a>
+</div>

@@ -28,6 +28,8 @@
 namespace Whatwedo\SyliusDatatransPaymentPlugin\Form\Type;
 
 use Symfony\Component\Form\AbstractType;
+use Symfony\Component\Form\Extension\Core\Type\CheckboxType;
+use Symfony\Component\Form\Extension\Core\Type\ChoiceType;
 use Symfony\Component\Form\Extension\Core\Type\TextType;
 use Symfony\Component\Form\FormBuilderInterface;
 
@@ -40,6 +42,29 @@ class DatatransPaymentGatewayConfigurationType extends AbstractType
             ->add('merchant_id', TextType::class)
             ->add('endpoint', TextType::class)
             ->add('sign', TextType::class)
+            ->add('generate_link', CheckboxType::class, [
+                'required' => false,
+            ])
+            ->add('payment_methods', ChoiceType::class, [
+                'choices' => [
+                    'American Express' => 'AMX',
+                    'China UnionPay' => 'CUP',
+                    'Diners' => 'DIN',
+                    'Discover' => 'DIS',
+                    'JCB' => 'JCB',
+                    'Mastercard' => 'ECA',
+                    'Visa' => 'VIS',
+                    'Amazon Pay' => 'AZP',
+                    'Apple Pay' => 'APL',
+                    'Google Pay' => 'PAY',
+                    'PostFinance Card' => 'PFC',
+                    'PostFinance E-Finance' => 'PEF',
+                    'TWINT' => 'TWI',
+                    'PayPal' => 'PAP',
+                ],
+                'expanded' => true,
+                'multiple' => true,
+            ])
         ;
     }
 

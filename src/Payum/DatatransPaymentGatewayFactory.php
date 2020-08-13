@@ -29,8 +29,6 @@ namespace Whatwedo\SyliusDatatransPaymentPlugin\Payum;
 
 use Payum\Core\Bridge\Spl\ArrayObject;
 use Payum\Core\GatewayFactory;
-use Payum\Core\GatewayFactoryInterface;
-use Symfony\Component\HttpFoundation\RequestStack;
 use Whatwedo\SyliusDatatransPaymentPlugin\Payum\Action\StatusAction;
 
 class DatatransPaymentGatewayFactory extends GatewayFactory
@@ -47,7 +45,13 @@ class DatatransPaymentGatewayFactory extends GatewayFactory
         ]);
 
         $config['payum.api'] = function (ArrayObject $config) {
-            return new DatatransApi($config['merchant_id'], $config['endpoint'], $config['sign']);
+            return new DatatransApi(
+                $config['merchant_id'],
+                $config['endpoint'],
+                $config['sign'],
+                $config['generate_link'],
+                $config['payment_methods']
+            );
         };
     }
 

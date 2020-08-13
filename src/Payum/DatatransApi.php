@@ -48,16 +48,29 @@ class DatatransApi
     private $endpoint;
 
     /**
-     * DatatransApi constructor.
+     * @var bool $generateLink
+     */
+    private $generateLink;
+
+    /**
+     * @var array $paymentMethods
+     */
+    private $paymentMethods;
+
+    /**
      * @param string $merchantId
      * @param string $endpoint
      * @param string $sign
+     * @param bool $generateLink
+     * @param array $paymentMethods
      */
-    public function __construct(string $merchantId, string $endpoint, string $sign)
+    public function __construct(string $merchantId, string $endpoint, string $sign, bool $generateLink, array $paymentMethods)
     {
         $this->merchantId = $merchantId;
         $this->endpoint = $endpoint;
         $this->sign = $sign;
+        $this->generateLink = $generateLink;
+        $this->paymentMethods = $paymentMethods;
     }
 
     public function getPostParams(SyliusPaymentInterface $payment, string $returnUrl)
@@ -79,7 +92,9 @@ class DatatransApi
      */
     public function getEndpoint(): string
     {
-        return $this->endpoint;
+        return $this->endpoint.'?'.implode('&', array_map(function ($m) {
+            return 'paymentmethod='.$m;
+        }, $this->getPaymentMethods()));
     }
 
     /**
@@ -96,6 +111,22 @@ class DatatransApi
     public function getSign(): string
     {
         return $this->sign;
+    }
+
+    /**
+     * @return bool
+     */
+    public function isGenerateLink(): bool
+    {
+        return $this->generateLink;
+    }
+
+    /**
+     * @return array
+     */
+    public function getPaymentMethods(): array
+    {
+        return $this->paymentMethods;
     }
 
 }

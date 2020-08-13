@@ -15,5 +15,9 @@
         <service id="Whatwedo\SyliusDatatransPaymentPlugin\Payum\Action\CaptureAction" public="true">
             <tag name="payum.action" factory="datatrans_payment" alias="payum.action.capture" />
         </service>
+
+        <service id="Whatwedo\SyliusDatatransPaymentPlugin\Controller\PayFromLinkController" public="true">
+            <argument type="service" id="doctrine"/>
+        </service>
     </services>
 </container>

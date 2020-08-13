@@ -27,7 +27,6 @@
 
 namespace Whatwedo\SyliusDatatransPaymentPlugin\Payum\Action;
 
-
 use Payum\Core\Action\ActionInterface;
 use Payum\Core\Exception\RequestNotSupportedException;
 use Payum\Core\Request\GetStatusInterface;
@@ -53,10 +52,6 @@ class StatusAction implements ActionInterface
     public function execute($request)
     {
         RequestNotSupportedException::assertSupports($this, $request);
-
-        /** @var SyliusPaymentInterface $payment */
-        $payment = $request->getFirstModel();
-        $payment->setDetails($this->postParameters);
 
         if (isset($this->postParameters['status'])) {
             $status = $this->postParameters['status'];

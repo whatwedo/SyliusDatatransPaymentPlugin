@@ -1,0 +1,4 @@
+whatwedo_sylius_pay_from_link:
+    path: /pay-from-link/{payment}
+    defaults:
+        _controller: WhatwedoSyliusDatatransPaymentPlugin:PayFromLink:payFromLink
