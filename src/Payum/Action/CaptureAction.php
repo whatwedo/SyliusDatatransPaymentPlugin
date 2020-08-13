@@ -53,9 +53,15 @@ class CaptureAction implements ActionInterface, ApiAwareInterface
 
         $returnUrl = $request->getToken()->getAfterUrl();
 
+        $details = [
+            'endpoint' => $this->api->getEndpoint(),
+            'post_params' => $this->api->getPostParams($payment, $returnUrl),
+        ];
+        $payment->setDetails($details);
+
         throw new HttpPostRedirect(
-            $this->api->getEndpoint(),
-            $this->api->getPostParams($payment, $returnUrl)
+            $details['endpoint'],
+            $details['post_params']
         );
     }
 
