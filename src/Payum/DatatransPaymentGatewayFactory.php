@@ -48,7 +48,7 @@ class DatatransPaymentGatewayFactory extends GatewayFactory
             return new DatatransApi(
                 $config['merchant_id'],
                 $config['endpoint'],
-                $config['sign'],
+                empty($config['sign']) ? '' : $config['sign'],
                 $config['generate_link'],
                 $config['payment_methods']
             );
