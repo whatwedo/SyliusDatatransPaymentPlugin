@@ -1,4 +1,6 @@
 <?php
+
+declare(strict_types=1);
 /*
  * Copyright (c) 2020, whatwedo GmbH
  * All rights reserved
@@ -34,22 +36,17 @@ use Sylius\Component\Core\Model\PaymentInterface as SyliusPaymentInterface;
 
 class StatusAction implements ActionInterface
 {
-
     /**
-     * @var array $postParameters
+     * @var array
      */
     protected $postParameters;
 
-    /**
-     * StatusAction constructor.
-     * @param array $postParameters
-     */
     public function __construct(array $postParameters)
     {
         $this->postParameters = $postParameters;
     }
 
-    public function execute($request)
+    public function execute($request): void
     {
         RequestNotSupportedException::assertSupports($this, $request);
 
@@ -77,10 +74,9 @@ class StatusAction implements ActionInterface
 
     public function supports($request): bool
     {
-        return
-            $request instanceof GetStatusInterface &&
-            $request->getFirstModel() instanceof SyliusPaymentInterface
+        return $request instanceof GetStatusInterface
+            && method_exists($request, 'getFirstModel')
+            && $request->getFirstModel() instanceof SyliusPaymentInterface
         ;
     }
-
 }

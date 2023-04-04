@@ -1,4 +1,6 @@
 <?php
+
+declare(strict_types=1);
 /*
  * Copyright (c) 2020, whatwedo GmbH
  * All rights reserved
@@ -35,13 +37,15 @@ use Symfony\Component\Form\FormBuilderInterface;
 
 class DatatransPaymentGatewayConfigurationType extends AbstractType
 {
-
-    public function buildForm(FormBuilderInterface $builder, array $options)
+    public function buildForm(FormBuilderInterface $builder, array $options): void
     {
         $builder
             ->add('merchant_id', TextType::class)
             ->add('endpoint', TextType::class)
             ->add('sign', TextType::class)
+            ->add('hmac_sha256', CheckboxType::class, [
+                'required' => false,
+            ])
             ->add('generate_link', CheckboxType::class, [
                 'required' => false,
             ])
@@ -67,5 +71,4 @@ class DatatransPaymentGatewayConfigurationType extends AbstractType
             ])
         ;
     }
-
 }
