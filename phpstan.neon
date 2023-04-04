@@ -3,10 +3,13 @@ includes:
     - vendor/phpstan/phpstan-webmozart-assert/extension.neon
 
 parameters:
+    level: 6
+    paths:
+        - src
     reportUnmatchedIgnoredErrors: false
     checkMissingIterableValueType: false
 
-    excludes_analyse:
+    excludePaths:
         # Makes PHPStan crash
         - 'src/DependencyInjection/Configuration.php'
 
@@ -15,4 +18,4 @@ parameters:
         - 'tests/Application/src/**.php'
 
     ignoreErrors:
-        - '/Parameter #1 $configuration of method Symfony\Component\DependencyInjection\Extension\Extension::processConfiguration() expects Symfony\Component\Config\Definition\ConfigurationInterface, Symfony\Component\Config\Definition\ConfigurationInterface|null given./'
+        - '/Parameter #1 \$configuration of method Symfony\Component\DependencyInjection\Extension\Extension::processConfiguration\(\) expects Symfony\Component\Config\Definition\ConfigurationInterface, Symfony\Component\Config\Definition\ConfigurationInterface\|null given./'

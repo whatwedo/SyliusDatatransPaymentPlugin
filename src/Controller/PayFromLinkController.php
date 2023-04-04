@@ -1,4 +1,6 @@
 <?php
+
+declare(strict_types=1);
 /*
  * Copyright (c) 2020, whatwedo GmbH
  * All rights reserved
@@ -27,9 +29,9 @@
 
 namespace Whatwedo\SyliusDatatransPaymentPlugin\Controller;
 
-use Sylius\Component\Core\Model\Payment;
 use Doctrine\Persistence\ManagerRegistry;
 use Payum\Core\Reply\HttpPostRedirect;
+use Sylius\Component\Core\Model\Payment;
 use Sylius\Component\Core\Model\PaymentMethod;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
@@ -38,7 +40,6 @@ use Whatwedo\SyliusDatatransPaymentPlugin\Payum\DatatransPaymentGatewayFactory;
 
 class PayFromLinkController extends AbstractController
 {
-
     /**
      * @var ManagerRegistry
      */
@@ -49,7 +50,7 @@ class PayFromLinkController extends AbstractController
         $this->doctrine = $registry;
     }
 
-    public function payFromLinkAction($payment)
+    public function payFromLinkAction(int $payment): void
     {
         $payment = $this->doctrine->getRepository(Payment::class)->find($payment);
         if (!$payment) {
@@ -61,7 +62,7 @@ class PayFromLinkController extends AbstractController
         }
         /** @var PaymentMethod $paymentMethod */
         $paymentMethod = $payment->getMethod();
-        if (!$paymentMethod->getGatewayConfig()->getFactoryName() === DatatransPaymentGatewayFactory::FACTORY_NAME) {
+        if ($paymentMethod->getGatewayConfig()->getFactoryName() !== DatatransPaymentGatewayFactory::FACTORY_NAME) {
             throw new NotFoundHttpException();
         }
         $config = $paymentMethod->getGatewayConfig()->getConfig();
@@ -70,7 +71,8 @@ class PayFromLinkController extends AbstractController
             $config['endpoint'],
             $config['sign'],
             $config['generate_link'],
-            $config['payment_methods']
+            $config['payment_methods'],
+            $config['hmac_sha256'] ?? false,
         );
         if (!$api->isGenerateLink()) {
             throw new NotFoundHttpException();
@@ -80,5 +82,4 @@ class PayFromLinkController extends AbstractController
             $api->getPostParams($payment, $details['payment-link'])
         );
     }
-
 }

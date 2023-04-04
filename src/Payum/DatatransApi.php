@@ -1,4 +1,6 @@
 <?php
+
+declare(strict_types=1);
 /*
  * Copyright (c) 2020, whatwedo GmbH
  * All rights reserved
@@ -31,65 +33,64 @@ use Sylius\Component\Core\Model\PaymentInterface as SyliusPaymentInterface;
 
 class DatatransApi
 {
-
     /**
-     * @var string $merchantId
+     * @var string
      */
     private $merchantId;
 
     /**
-     * @var string $sign
+     * @var string
      */
     private $sign;
 
     /**
-     * @var string $endpoint
+     * @var string
      */
     private $endpoint;
 
     /**
-     * @var bool $generateLink
+     * @var bool
      */
     private $generateLink;
 
     /**
-     * @var array $paymentMethods
+     * @var array
      */
     private $paymentMethods;
 
     /**
-     * @param string $merchantId
-     * @param string $endpoint
-     * @param string $sign
-     * @param bool $generateLink
-     * @param array $paymentMethods
+     * @var bool
      */
-    public function __construct(string $merchantId, string $endpoint, string $sign, bool $generateLink, array $paymentMethods)
+    private $hmacSHA256;
+
+    public function __construct(string $merchantId, string $endpoint, string $sign, bool $generateLink, array $paymentMethods, bool $hmacSHA256)
     {
         $this->merchantId = $merchantId;
         $this->endpoint = $endpoint;
         $this->sign = $sign;
         $this->generateLink = $generateLink;
         $this->paymentMethods = $paymentMethods;
+        $this->hmacSHA256 = $hmacSHA256;
     }
 
-    public function getPostParams(SyliusPaymentInterface $payment, string $returnUrl)
+    public function getPostParams(SyliusPaymentInterface $payment, string $returnUrl): array
     {
+        $sign = $this->getSign();
+        if ($this->isHmacSHA256()) {
+            $sign = $this->generateHmacSign((string) $payment->getAmount(), $payment->getCurrencyCode(), $payment->getOrder()->getNumber());
+        }
         return [
-            'merchantId' => $this->merchantId,
+            'merchantId' => $this->getMerchantId(),
             'refno' => $payment->getOrder()->getNumber(),
             'amount' => $payment->getAmount(),
             'currency' => 'CHF',
-            'sign' => $this->sign,
+            'sign' => $sign,
             'successUrl' => $returnUrl,
             'cancelUrl' => $returnUrl,
             'errorUrl' => $returnUrl,
         ];
     }
 
-    /**
-     * @return string
-     */
     public function getEndpoint(): string
     {
         return $this->endpoint.'?'.implode('&', array_map(function ($m) {
@@ -97,36 +98,34 @@ class DatatransApi
         }, $this->getPaymentMethods()));
     }
 
-    /**
-     * @return string
-     */
     public function getMerchantId(): string
     {
         return $this->merchantId;
     }
 
-    /**
-     * @return string
-     */
     public function getSign(): string
     {
         return $this->sign;
     }
 
-    /**
-     * @return bool
-     */
+    public function isHmacSHA256(): bool
+    {
+        return $this->hmacSHA256;
+    }
+
+    public function generateHmacSign(string $amount, string $currency, string $refNo): string
+    {
+        $hmac = $this->getMerchantId() . $amount . $currency . $refNo;
+        return hash_hmac('sha256', $hmac, pack('H*', $this->getSign()));
+    }
+
     public function isGenerateLink(): bool
     {
         return $this->generateLink;
     }
 
-    /**
-     * @return array
-     */
     public function getPaymentMethods(): array
     {
         return $this->paymentMethods;
     }
-
 }

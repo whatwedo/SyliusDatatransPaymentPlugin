@@ -1,4 +1,6 @@
 <?php
+
+declare(strict_types=1);
 /*
  * Copyright (c) 2020, whatwedo GmbH
  * All rights reserved
@@ -33,18 +35,17 @@ use Payum\Core\Exception\RequestNotSupportedException;
 use Payum\Core\Exception\UnsupportedApiException;
 use Payum\Core\Reply\HttpPostRedirect;
 use Payum\Core\Request\Capture;
-use Whatwedo\SyliusDatatransPaymentPlugin\Payum\DatatransApi;
 use Sylius\Component\Core\Model\PaymentInterface as SyliusPaymentInterface;
+use Whatwedo\SyliusDatatransPaymentPlugin\Payum\DatatransApi;
 
 class CaptureAction implements ActionInterface, ApiAwareInterface
 {
-
     /**
-     * @var DatatransApi $api
+     * @var DatatransApi
      */
     private $api;
 
-    public function execute($request)
+    public function execute($request): void
     {
         RequestNotSupportedException::assertSupports($this, $request);
         $payment = $request->getModel();
@@ -65,8 +66,7 @@ class CaptureAction implements ActionInterface, ApiAwareInterface
 
     public function supports($request)
     {
-        return
-            $request instanceof Capture &&
+        return $request instanceof Capture &&
             $request->getModel() instanceof SyliusPaymentInterface
         ;
     }
@@ -78,5 +78,4 @@ class CaptureAction implements ActionInterface, ApiAwareInterface
         }
         $this->api = $api;
     }
-
 }
