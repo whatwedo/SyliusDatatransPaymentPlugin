@@ -70,7 +70,8 @@ class PayFromLinkController extends AbstractController
             $config['endpoint'],
             $config['sign'],
             $config['generate_link'],
-            $config['payment_methods']
+            $config['payment_methods'],
+            $config['hmac_sha256'] ?? false,
         );
         if (!$api->isGenerateLink()) {
             throw new NotFoundHttpException();
