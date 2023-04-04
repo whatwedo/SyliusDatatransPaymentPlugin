@@ -1,4 +1,6 @@
 <?php
+
+declare(strict_types=1);
 /*
  * Copyright (c) 2020, whatwedo GmbH
  * All rights reserved
@@ -27,9 +29,9 @@
 
 namespace Whatwedo\SyliusDatatransPaymentPlugin\Controller;
 
-use Sylius\Component\Core\Model\Payment;
 use Doctrine\Persistence\ManagerRegistry;
 use Payum\Core\Reply\HttpPostRedirect;
+use Sylius\Component\Core\Model\Payment;
 use Sylius\Component\Core\Model\PaymentMethod;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
@@ -38,7 +40,6 @@ use Whatwedo\SyliusDatatransPaymentPlugin\Payum\DatatransPaymentGatewayFactory;
 
 class PayFromLinkController extends AbstractController
 {
-
     /**
      * @var ManagerRegistry
      */
@@ -81,5 +82,4 @@ class PayFromLinkController extends AbstractController
             $api->getPostParams($payment, $details['payment-link'])
         );
     }
-
 }

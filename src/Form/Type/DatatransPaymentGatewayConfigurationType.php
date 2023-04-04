@@ -1,4 +1,6 @@
 <?php
+
+declare(strict_types=1);
 /*
  * Copyright (c) 2020, whatwedo GmbH
  * All rights reserved
@@ -35,7 +37,6 @@ use Symfony\Component\Form\FormBuilderInterface;
 
 class DatatransPaymentGatewayConfigurationType extends AbstractType
 {
-
     public function buildForm(FormBuilderInterface $builder, array $options)
     {
         $builder
@@ -70,5 +71,4 @@ class DatatransPaymentGatewayConfigurationType extends AbstractType
             ])
         ;
     }
-
 }

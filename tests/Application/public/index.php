@@ -1,8 +1,10 @@
 <?php
 
-use Tests\Acme\SyliusExamplePlugin\Application\Kernel;
+declare(strict_types=1);
+
 use Symfony\Component\Debug\Debug;
 use Symfony\Component\HttpFoundation\Request;
+use Tests\Acme\SyliusExamplePlugin\Application\Kernel;
 
 require dirname(__DIR__).'/config/bootstrap.php';
 

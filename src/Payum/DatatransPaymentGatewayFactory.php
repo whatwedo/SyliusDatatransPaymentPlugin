@@ -1,4 +1,6 @@
 <?php
+
+declare(strict_types=1);
 /*
  * Copyright (c) 2020, whatwedo GmbH
  * All rights reserved
@@ -33,7 +35,6 @@ use Whatwedo\SyliusDatatransPaymentPlugin\Payum\Action\StatusAction;
 
 class DatatransPaymentGatewayFactory extends GatewayFactory
 {
-
     public const FACTORY_NAME = 'datatrans_payment';
 
     protected function populateConfig(ArrayObject $config): void
@@ -55,5 +56,4 @@ class DatatransPaymentGatewayFactory extends GatewayFactory
             );
         };
     }
-
 }

@@ -3,3 +3,6 @@ exec:
 
 install:
 	COMPOSER_MEMORY_LIMIT=-1 composer install
+
+ecs:
+	@vendor/bin/ecs check src tests --clear-cache --config vendor/whatwedo/php-coding-standard/config/whatwedo-symfony.php --fix
