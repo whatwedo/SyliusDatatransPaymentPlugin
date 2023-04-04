@@ -63,7 +63,6 @@ class DatatransApi
      */
     private $hmacSHA256;
 
-
     public function __construct(string $merchantId, string $endpoint, string $sign, bool $generateLink, array $paymentMethods, bool $hmacSHA256)
     {
         $this->merchantId = $merchantId;
@@ -74,7 +73,7 @@ class DatatransApi
         $this->hmacSHA256 = $hmacSHA256;
     }
 
-    public function getPostParams(SyliusPaymentInterface $payment, string $returnUrl)
+    public function getPostParams(SyliusPaymentInterface $payment, string $returnUrl): array
     {
         $sign = $this->getSign();
         if ($this->isHmacSHA256()) {
@@ -92,7 +91,6 @@ class DatatransApi
         ];
     }
 
-
     public function getEndpoint(): string
     {
         return $this->endpoint.'?'.implode('&', array_map(function ($m) {
@@ -100,24 +98,20 @@ class DatatransApi
         }, $this->getPaymentMethods()));
     }
 
-
     public function getMerchantId(): string
     {
         return $this->merchantId;
     }
-
 
     public function getSign(): string
     {
         return $this->sign;
     }
 
-
     public function isHmacSHA256(): bool
     {
         return $this->hmacSHA256;
     }
-
 
     public function generateHmacSign(string $amount, string $currency, string $refNo): string
     {
@@ -125,12 +119,10 @@ class DatatransApi
         return hash_hmac('sha256', $hmac, pack('H*', $this->getSign()));
     }
 
-
     public function isGenerateLink(): bool
     {
         return $this->generateLink;
     }
-
 
     public function getPaymentMethods(): array
     {

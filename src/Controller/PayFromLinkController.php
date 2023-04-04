@@ -50,7 +50,7 @@ class PayFromLinkController extends AbstractController
         $this->doctrine = $registry;
     }
 
-    public function payFromLinkAction($payment)
+    public function payFromLinkAction(int $payment): void
     {
         $payment = $this->doctrine->getRepository(Payment::class)->find($payment);
         if (!$payment) {
@@ -62,7 +62,7 @@ class PayFromLinkController extends AbstractController
         }
         /** @var PaymentMethod $paymentMethod */
         $paymentMethod = $payment->getMethod();
-        if (!$paymentMethod->getGatewayConfig()->getFactoryName() === DatatransPaymentGatewayFactory::FACTORY_NAME) {
+        if ($paymentMethod->getGatewayConfig()->getFactoryName() !== DatatransPaymentGatewayFactory::FACTORY_NAME) {
             throw new NotFoundHttpException();
         }
         $config = $paymentMethod->getGatewayConfig()->getConfig();

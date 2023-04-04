@@ -45,7 +45,7 @@ class CaptureAction implements ActionInterface, ApiAwareInterface
      */
     private $api;
 
-    public function execute($request)
+    public function execute($request): void
     {
         RequestNotSupportedException::assertSupports($this, $request);
         $payment = $request->getModel();

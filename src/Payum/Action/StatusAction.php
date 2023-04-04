@@ -41,13 +41,12 @@ class StatusAction implements ActionInterface
      */
     protected $postParameters;
 
-    
     public function __construct(array $postParameters)
     {
         $this->postParameters = $postParameters;
     }
 
-    public function execute($request)
+    public function execute($request): void
     {
         RequestNotSupportedException::assertSupports($this, $request);
 
@@ -75,8 +74,9 @@ class StatusAction implements ActionInterface
 
     public function supports($request): bool
     {
-        return $request instanceof GetStatusInterface &&
-            $request->getFirstModel() instanceof SyliusPaymentInterface
+        return $request instanceof GetStatusInterface
+            && method_exists($request, 'getFirstModel')
+            && $request->getFirstModel() instanceof SyliusPaymentInterface
         ;
     }
 }

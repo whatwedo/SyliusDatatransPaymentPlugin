@@ -6,3 +6,6 @@ install:
 
 ecs:
 	@vendor/bin/ecs check src tests --clear-cache --config vendor/whatwedo/php-coding-standard/config/whatwedo-symfony.php --fix
+
+phpstan:
+	@./vendor/bin/phpstan analyse

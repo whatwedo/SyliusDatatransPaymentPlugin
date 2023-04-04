@@ -37,7 +37,7 @@ use Symfony\Component\Form\FormBuilderInterface;
 
 class DatatransPaymentGatewayConfigurationType extends AbstractType
 {
-    public function buildForm(FormBuilderInterface $builder, array $options)
+    public function buildForm(FormBuilderInterface $builder, array $options): void
     {
         $builder
             ->add('merchant_id', TextType::class)
