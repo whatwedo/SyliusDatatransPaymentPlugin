@@ -116,7 +116,7 @@ class DatatransApi
     public function generateHmacSign(string $amount, string $currency, string $refNo): string
     {
         $hmac = $this->getMerchantId() . $amount . $currency . $refNo;
-        return hash_hmac('sha256', $hmac, pack('H*', $this->getSign()));
+        return strtolower(bin2hex(hash_hmac('sha256', $hmac, pack('H*', $this->getSign()), true)));
     }
 
     public function isGenerateLink(): bool
