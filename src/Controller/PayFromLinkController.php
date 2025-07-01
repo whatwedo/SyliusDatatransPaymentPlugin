@@ -31,6 +31,7 @@ namespace Whatwedo\SyliusDatatransPaymentPlugin\Controller;
 
 use Doctrine\Persistence\ManagerRegistry;
 use Payum\Core\Reply\HttpPostRedirect;
+use Payum\Core\Reply\HttpRedirect;
 use Sylius\Component\Core\Model\Payment;
 use Sylius\Component\Core\Model\PaymentMethod;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -68,6 +69,7 @@ class PayFromLinkController extends AbstractController
         $config = $paymentMethod->getGatewayConfig()->getConfig();
         $api = new DatatransApi(
             $config['merchant_id'],
+            $config['password'] ?? throw new \InvalidArgumentException('Since 2.0.0 The "password" config option is required. To get the password, login to the dashboard (https://admin.sandbox.datatrans.com/) and navigate to the security settings under UPP Administration > Security.'),
             $config['endpoint'],
             $config['sign'],
             $config['generate_link'],
@@ -77,9 +79,16 @@ class PayFromLinkController extends AbstractController
         if (!$api->isGenerateLink()) {
             throw new NotFoundHttpException();
         }
-        throw new HttpPostRedirect(
-            $api->getEndpoint(),
-            $api->getPostParams($payment, $details['payment-link'])
-        );
+        $response = $webClient->request('POST', '/v1/transactions', [
+            'headers' => [
+                'Authorization' => 'Basic ' . $this->api->getCredentials(),
+                'Content-Type' => 'application/json; charset=UTF-8',
+            ],
+            'body' => json_encode($api->getPostParams($payment, $details['payment-link'])),
+        ]);
+        $responseData = $response->toArray(false);
+        $payment->setDetails($responseData);
+        $this->doctrine->getManager()->flush();
+        throw new HttpRedirect($this->api->getPayUrl($responseData['transactionId']));
     }
 }

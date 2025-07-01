@@ -41,6 +41,7 @@ class DatatransPaymentGatewayConfigurationType extends AbstractType
     {
         $builder
             ->add('merchant_id', TextType::class)
+            ->add('password', TextType::class)
             ->add('endpoint', TextType::class)
             ->add('sign', TextType::class)
             ->add('hmac_sha256', CheckboxType::class, [

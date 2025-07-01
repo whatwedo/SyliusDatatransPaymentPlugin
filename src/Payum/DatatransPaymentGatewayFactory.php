@@ -39,21 +39,28 @@ class DatatransPaymentGatewayFactory extends GatewayFactory
 
     protected function populateConfig(ArrayObject $config): void
     {
+        $api = $this->createDatatransApi($config);
         $config->defaults([
             'payum.factory_name' => self::FACTORY_NAME,
             'payum.factory_title' => 'Datatrans Payment',
-            'payum.action.status' => new StatusAction($_POST),
+            'payum.action.status' => new StatusAction($api->getEndpoint(), $api->getCredentials()),
         ]);
 
         $config['payum.api'] = function (ArrayObject $config) {
-            return new DatatransApi(
-                $config['merchant_id'],
-                $config['endpoint'],
-                empty($config['sign']) ? '' : $config['sign'],
-                $config['generate_link'],
-                $config['payment_methods'],
-                $config['hmac_sha256'] ?? false,
-            );
+            return $this->createDatatransApi($config);
         };
+    }
+
+    private function createDatatransApi(ArrayObject $config): DatatransApi
+    {
+        return new DatatransApi(
+            $config['merchant_id'],
+            $config['password'] ?? throw new \InvalidArgumentException('Since 2.0.0 The "password" config option is required. To get the password, login to the dashboard (https://admin.sandbox.datatrans.com/) and navigate to the security settings under UPP Administration > Security.'),
+            $config['endpoint'],
+            empty($config['sign']) ? '' : $config['sign'],
+            $config['generate_link'],
+            $config['payment_methods'],
+            $config['hmac_sha256'] ?? false,
+        );
     }
 }

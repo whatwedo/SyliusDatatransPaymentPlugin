@@ -34,8 +34,10 @@ use Payum\Core\ApiAwareInterface;
 use Payum\Core\Exception\RequestNotSupportedException;
 use Payum\Core\Exception\UnsupportedApiException;
 use Payum\Core\Reply\HttpPostRedirect;
+use Payum\Core\Reply\HttpRedirect;
 use Payum\Core\Request\Capture;
 use Sylius\Component\Core\Model\PaymentInterface as SyliusPaymentInterface;
+use Symfony\Component\HttpClient\HttpClient;
 use Whatwedo\SyliusDatatransPaymentPlugin\Payum\DatatransApi;
 
 class CaptureAction implements ActionInterface, ApiAwareInterface
@@ -48,19 +50,25 @@ class CaptureAction implements ActionInterface, ApiAwareInterface
     public function execute($request): void
     {
         RequestNotSupportedException::assertSupports($this, $request);
+        /** @var SyliusPaymentInterface $payment */
         $payment = $request->getModel();
-        $returnUrl = $request->getToken()->getAfterUrl();
-        $details = [
-            'endpoint' => $this->api->getEndpoint(),
-            'post_params' => $this->api->getPostParams($payment, $returnUrl),
-        ];
-        $payment->setDetails($details);
-        if (!$this->api->isGenerateLink()) {
-            /** @var SyliusPaymentInterface $payment */
-            throw new HttpPostRedirect(
-                $details['endpoint'],
-                $details['post_params']
-            );
+        $returnUrl = 'https://manuels.test';//$request->getToken()->getAfterUrl();
+
+        $webClient = HttpClient::createForBaseUri($this->api->getEndpoint());
+
+        $response = $webClient->request('POST', '/v1/transactions', [
+            'headers' => [
+                'Authorization' => 'Basic ' . $this->api->getCredentials(),
+                'Content-Type' => 'application/json; charset=UTF-8',
+            ],
+            'body' => json_encode($this->api->getPostParams($payment, $returnUrl)),
+        ]);
+        $responseData = $response->toArray(false);
+        if (isset($responseData['transactionId'])) {
+            $payment->setDetails($responseData);
+            if (!$this->api->isGenerateLink()) {
+                throw new HttpRedirect($this->api->getPayUrl($responseData['transactionId']));
+            }
         }
     }
 
