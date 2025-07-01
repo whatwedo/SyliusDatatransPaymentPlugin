@@ -52,7 +52,7 @@ class CaptureAction implements ActionInterface, ApiAwareInterface
         RequestNotSupportedException::assertSupports($this, $request);
         /** @var SyliusPaymentInterface $payment */
         $payment = $request->getModel();
-        $returnUrl = 'https://manuels.test';//$request->getToken()->getAfterUrl();
+        $returnUrl = $request->getToken()->getAfterUrl();
 
         $webClient = HttpClient::createForBaseUri($this->api->getEndpoint());
 
