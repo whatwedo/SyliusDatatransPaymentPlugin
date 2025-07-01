@@ -19,5 +19,12 @@
         <service id="Whatwedo\SyliusDatatransPaymentPlugin\Controller\PayFromLinkController" public="true">
             <argument type="service" id="doctrine"/>
         </service>
+
+        <service id="Whatwedo\SyliusDatatransPaymentPlugin\Command\CheckForDatatransPaymentStatusCommand" public="true">
+            <tag name="console.command" />
+            <argument type="service" id="sylius.repository.payment" />
+            <argument type="service" id="SM\Factory\Factory" />
+            <argument type="service" id="doctrine.orm.default_entity_manager" />
+        </service>
     </services>
 </container>

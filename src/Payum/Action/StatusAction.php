@@ -29,47 +29,65 @@ declare(strict_types=1);
 
 namespace Whatwedo\SyliusDatatransPaymentPlugin\Payum\Action;
 
+use App\Entity\Payment\Payment;
 use Payum\Core\Action\ActionInterface;
 use Payum\Core\Exception\RequestNotSupportedException;
 use Payum\Core\Request\GetStatusInterface;
 use Sylius\Component\Core\Model\PaymentInterface as SyliusPaymentInterface;
+use Symfony\Component\HttpClient\HttpClient;
+use Whatwedo\SyliusDatatransPaymentPlugin\Payum\DatatransApi;
 
 class StatusAction implements ActionInterface
 {
     /**
-     * @var array
+     * @var string $endpoint
      */
-    protected $postParameters;
+    private $endpoint;
 
-    public function __construct(array $postParameters)
+    /**
+     * @var string $credentials
+     */
+    private $credentials;
+
+    public function __construct(string $endpoint, string $credentials)
     {
-        $this->postParameters = $postParameters;
+        $this->endpoint = $endpoint;
+        $this->credentials = $credentials;
     }
 
+    /**
+     * @param GetStatusInterface $request
+     * @return void
+     */
     public function execute($request): void
     {
         RequestNotSupportedException::assertSupports($this, $request);
 
-        if (isset($this->postParameters['status'])) {
-            $status = $this->postParameters['status'];
-            if ('success' === $status) {
-                $request->markCaptured();
-                return;
-            }
+        /** @var Payment $payment */
+        $payment = $request->getFirstModel();
+        $transactionId = $payment->getDetails()['transactionId'] ?? null;
 
-            if ('error' === $status) {
-                $request->markFailed();
-                return;
-            }
-
-            if ('cancel' === $status) {
-                $request->markCanceled();
-                return;
-            }
+        if ($transactionId === null) {
+            // if no datatransTrxId is set, we cannot determine the status
+            $request->markUnknown();
+            return;
         }
 
-        // unexpected, therefore mark as canceled
-        $request->markCanceled();
+        $client = HttpClient::createForBaseUri($this->endpoint);
+        $requestData = $client->request('GET', '/v1/transactions/' . $transactionId, [
+            'headers' => [
+                'Authorization' => 'Basic ' . $this->credentials,
+            ],
+        ])->toArray(false);
+
+        $payment->addDetail('datatrans', $requestData);
+
+        match ($requestData['status'] ?? '') {
+            'settled' => $request->markCaptured(),
+            'canceled' => $request->markCanceled(),
+            'failed' => $request->markFailed(),
+            default => $request->markUnknown(),
+        };
     }
 
     public function supports($request): bool

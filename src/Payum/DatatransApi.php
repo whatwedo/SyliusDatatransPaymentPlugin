@@ -41,6 +41,11 @@ class DatatransApi
     /**
      * @var string
      */
+    private $password;
+
+    /**
+     * @var string
+     */
     private $sign;
 
     /**
@@ -63,9 +68,10 @@ class DatatransApi
      */
     private $hmacSHA256;
 
-    public function __construct(string $merchantId, string $endpoint, string $sign, bool $generateLink, array $paymentMethods, bool $hmacSHA256)
+    public function __construct(string $merchantId, string $password, string $endpoint, string $sign, bool $generateLink, array $paymentMethods, bool $hmacSHA256)
     {
         $this->merchantId = $merchantId;
+        $this->password = $password;
         $this->endpoint = $endpoint;
         $this->sign = $sign;
         $this->generateLink = $generateLink;
@@ -80,27 +86,48 @@ class DatatransApi
             $sign = $this->generateHmacSign((string) $payment->getAmount(), $payment->getCurrencyCode(), $payment->getOrder()->getNumber());
         }
         return [
-            'merchantId' => $this->getMerchantId(),
+            'autoSettle' => true,
+            'language' => 'de',
+            'currency' => 'CHF',
             'refno' => $payment->getOrder()->getNumber(),
             'amount' => $payment->getAmount(),
-            'currency' => 'CHF',
-            'sign' => $sign,
-            'successUrl' => $returnUrl,
-            'cancelUrl' => $returnUrl,
-            'errorUrl' => $returnUrl,
+            'redirect' => [
+                'successUrl' => $returnUrl,
+                'cancelUrl' => $returnUrl,
+                'errorUrl' => $returnUrl,
+            ],
+            'paymentMethods' => $this->getPaymentMethods(),
         ];
     }
 
     public function getEndpoint(): string
     {
-        return $this->endpoint.'?'.implode('&', array_map(function ($m) {
-            return 'paymentmethod='.$m;
-        }, $this->getPaymentMethods()));
+        return rtrim($this->endpoint, '/');
+    }
+
+    public function getCredentials(): string
+    {
+        return base64_encode($this->getMerchantId() . ':' . $this->getPassword());
+    }
+
+    public function getPayUrl(string $transactionId): string
+    {
+        if (str_contains($this->getEndpoint(), 'sandbox')) {
+            $pay = 'https://pay.sandbox.datatrans.com/v1/start/';
+        } else {
+            $pay = 'https://pay.datatrans.com/v1/start/';
+        }
+        return $pay . $transactionId;
     }
 
     public function getMerchantId(): string
     {
         return $this->merchantId;
+    }
+
+    public function getPassword(): string
+    {
+        return $this->password;
     }
 
     public function getSign(): string
