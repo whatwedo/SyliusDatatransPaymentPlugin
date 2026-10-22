@@ -1,4 +1,0 @@
-suites:
-    main:
-        namespace: Whatwedo\SyliusDatatransPaymentPlugin
-        psr4_prefix: Whatwedo\SyliusDatatransPaymentPlugin
