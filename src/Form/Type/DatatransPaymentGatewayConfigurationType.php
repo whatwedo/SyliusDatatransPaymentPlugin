@@ -30,10 +30,14 @@ declare(strict_types=1);
 namespace Whatwedo\SyliusDatatransPaymentPlugin\Form\Type;
 
 use Symfony\Component\Form\AbstractType;
+use Symfony\Component\Form\CallbackTransformer;
 use Symfony\Component\Form\Extension\Core\Type\CheckboxType;
 use Symfony\Component\Form\Extension\Core\Type\ChoiceType;
+use Symfony\Component\Form\Extension\Core\Type\PasswordType;
 use Symfony\Component\Form\Extension\Core\Type\TextType;
 use Symfony\Component\Form\FormBuilderInterface;
+use Symfony\Component\Validator\Constraints\NotBlank;
+use Symfony\Component\Validator\Constraints\Url;
 
 class DatatransPaymentGatewayConfigurationType extends AbstractType
 {
@@ -41,9 +45,22 @@ class DatatransPaymentGatewayConfigurationType extends AbstractType
     {
         $builder
             ->add('merchant_id', TextType::class)
-            ->add('password', TextType::class)
-            ->add('endpoint', TextType::class)
-            ->add('sign', TextType::class)
+            ->add('password', PasswordType::class, [
+                'always_empty' => false,
+                'required' => false,
+                'constraints' => [
+                    new NotBlank(groups: ['sylius']),
+                ],
+            ])
+            ->add('endpoint', TextType::class, [
+                'constraints' => [
+                    new NotBlank(groups: ['sylius']),
+                    new Url(protocols: ['https'], groups: ['sylius']),
+                ],
+            ])
+            ->add('sign', TextType::class, [
+                'required' => false,
+            ])
             ->add('hmac_sha256', CheckboxType::class, [
                 'required' => false,
             ])
@@ -64,6 +81,7 @@ class DatatransPaymentGatewayConfigurationType extends AbstractType
                     'Google Pay' => 'PAY',
                     'PostFinance Card' => 'PFC',
                     'PostFinance E-Finance' => 'PEF',
+                    'PostFinance Pay' => 'PFP',
                     'TWINT' => 'TWI',
                     'PayPal' => 'PAP',
                 ],
@@ -71,5 +89,17 @@ class DatatransPaymentGatewayConfigurationType extends AbstractType
                 'multiple' => true,
             ])
         ;
+
+        $storedPassword = null;
+        $builder->get('password')->addModelTransformer(new CallbackTransformer(
+            function ($password) use (&$storedPassword) {
+                $storedPassword = $password;
+
+                return $password;
+            },
+            function ($password) use (&$storedPassword) {
+                return ($password ?? '') === '' ? $storedPassword : $password;
+            },
+        ));
     }
 }
