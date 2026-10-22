@@ -30,12 +30,15 @@ declare(strict_types=1);
 namespace Whatwedo\SyliusDatatransPaymentPlugin\Controller;
 
 use Doctrine\Persistence\ManagerRegistry;
-use Payum\Core\Reply\HttpPostRedirect;
 use Payum\Core\Reply\HttpRedirect;
 use Sylius\Component\Core\Model\Payment;
-use Sylius\Component\Core\Model\PaymentMethod;
+use Sylius\Component\Core\Model\PaymentInterface;
+use Sylius\Component\Core\Repository\PaymentRepositoryInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
+use Symfony\Contracts\HttpClient\Exception\ExceptionInterface;
+use Symfony\Contracts\HttpClient\HttpClientInterface;
 use Whatwedo\SyliusDatatransPaymentPlugin\Payum\DatatransApi;
 use Whatwedo\SyliusDatatransPaymentPlugin\Payum\DatatransPaymentGatewayFactory;
 
@@ -46,49 +49,50 @@ class PayFromLinkController extends AbstractController
      */
     protected $doctrine;
 
-    public function __construct(ManagerRegistry $registry)
+    private ?HttpClientInterface $httpClient;
+
+    private ?PaymentRepositoryInterface $paymentRepository;
+
+    public function __construct(ManagerRegistry $registry, ?HttpClientInterface $httpClient = null, ?PaymentRepositoryInterface $paymentRepository = null)
     {
         $this->doctrine = $registry;
+        $this->httpClient = $httpClient;
+        $this->paymentRepository = $paymentRepository;
     }
 
-    public function payFromLinkAction(int $payment): void
+    public function payFromLinkAction(int $payment, ?Request $request = null): void
     {
-        $payment = $this->doctrine->getRepository(Payment::class)->find($payment);
-        if (!$payment) {
+        $payment = ($this->paymentRepository ?? $this->doctrine->getRepository(Payment::class))->find($payment);
+        if (!$payment instanceof PaymentInterface || $payment->getState() !== PaymentInterface::STATE_NEW) {
+            throw new NotFoundHttpException();
+        }
+        $token = $request ? $request->query->get('token') : null;
+        $tokenValue = $payment->getOrder()?->getTokenValue();
+        if (!is_string($token) || !is_string($tokenValue) || !hash_equals($tokenValue, $token)) {
             throw new NotFoundHttpException();
         }
         $details = $payment->getDetails();
         if (!isset($details['payment-link'])) {
             throw new NotFoundHttpException();
         }
-        /** @var PaymentMethod $paymentMethod */
-        $paymentMethod = $payment->getMethod();
-        if ($paymentMethod->getGatewayConfig()->getFactoryName() !== DatatransPaymentGatewayFactory::FACTORY_NAME) {
+        $gatewayConfig = $payment->getMethod()?->getGatewayConfig();
+        if ($gatewayConfig === null || $gatewayConfig->getFactoryName() !== DatatransPaymentGatewayFactory::FACTORY_NAME) {
             throw new NotFoundHttpException();
         }
-        $config = $paymentMethod->getGatewayConfig()->getConfig();
-        $api = new DatatransApi(
-            $config['merchant_id'],
-            $config['password'] ?? throw new \InvalidArgumentException('Since 2.0.0 The "password" config option is required. To get the password, login to the dashboard (https://admin.sandbox.datatrans.com/) and navigate to the security settings under UPP Administration > Security.'),
-            $config['endpoint'],
-            $config['sign'],
-            $config['generate_link'],
-            $config['payment_methods'],
-            $config['hmac_sha256'] ?? false,
-        );
+        $api = DatatransApi::fromConfig($gatewayConfig->getConfig(), $this->httpClient);
         if (!$api->isGenerateLink()) {
             throw new NotFoundHttpException();
         }
-        $response = $webClient->request('POST', '/v1/transactions', [
-            'headers' => [
-                'Authorization' => 'Basic ' . $this->api->getCredentials(),
-                'Content-Type' => 'application/json; charset=UTF-8',
-            ],
-            'body' => json_encode($api->getPostParams($payment, $details['payment-link'])),
-        ]);
-        $responseData = $response->toArray(false);
-        $payment->setDetails($responseData);
+        try {
+            $paid = $api->hasPaidTransaction($details);
+        } catch (\RuntimeException|ExceptionInterface $exception) {
+            throw new HttpRedirect($details['payment-link']);
+        }
+        if ($paid) {
+            throw new HttpRedirect($details['payment-link']);
+        }
+        $transactionId = $api->initTransaction($payment, $details['payment-link']);
         $this->doctrine->getManager()->flush();
-        throw new HttpRedirect($this->api->getPayUrl($responseData['transactionId']));
+        throw new HttpRedirect($transactionId === null ? $details['payment-link'] : $api->getPayUrl($transactionId));
     }
 }
