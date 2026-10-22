@@ -29,12 +29,13 @@ declare(strict_types=1);
 
 namespace Whatwedo\SyliusDatatransPaymentPlugin\Payum\Action;
 
-use App\Entity\Payment\Payment;
 use Payum\Core\Action\ActionInterface;
 use Payum\Core\Exception\RequestNotSupportedException;
 use Payum\Core\Request\GetStatusInterface;
 use Sylius\Component\Core\Model\PaymentInterface as SyliusPaymentInterface;
 use Symfony\Component\HttpClient\HttpClient;
+use Symfony\Contracts\HttpClient\Exception\ExceptionInterface;
+use Symfony\Contracts\HttpClient\HttpClientInterface;
 use Whatwedo\SyliusDatatransPaymentPlugin\Payum\DatatransApi;
 
 class StatusAction implements ActionInterface
@@ -49,10 +50,13 @@ class StatusAction implements ActionInterface
      */
     private $credentials;
 
-    public function __construct(string $endpoint, string $credentials)
+    private ?HttpClientInterface $httpClient;
+
+    public function __construct(string $endpoint, string $credentials, ?HttpClientInterface $httpClient = null)
     {
         $this->endpoint = $endpoint;
         $this->credentials = $credentials;
+        $this->httpClient = $httpClient;
     }
 
     /**
@@ -63,29 +67,47 @@ class StatusAction implements ActionInterface
     {
         RequestNotSupportedException::assertSupports($this, $request);
 
-        /** @var Payment $payment */
+        /** @var SyliusPaymentInterface $payment */
         $payment = $request->getFirstModel();
-        $transactionId = $payment->getDetails()['transactionId'] ?? null;
+        $details = $payment->getDetails();
+        $transactionId = $details['transactionId'] ?? null;
 
-        if ($transactionId === null) {
-            // if no datatransTrxId is set, we cannot determine the status
-            $request->markUnknown();
+        $response = $transactionId === null ? null : $this->fetchTransaction((string) $transactionId);
+        if (!$this->isPaid($response['status'] ?? null)) {
+            $previousUnknown = false;
+            $previous = $this->findPaidPreviousTransaction($payment, $details, (string) $transactionId, $previousUnknown);
+            if ($previous === null && $previousUnknown) {
+                $request->markUnknown();
+                return;
+            }
+            $response = $previous ?? $response;
+        }
+
+        if ($response === null) {
+            if ($transactionId === null && isset($details['error']) && DatatransApi::getTransactionIds($details) === []) {
+                $request->markFailed();
+            } else {
+                $request->markUnknown();
+            }
             return;
         }
 
-        $client = HttpClient::createForBaseUri($this->endpoint);
-        $requestData = $client->request('GET', '/v1/transactions/' . $transactionId, [
-            'headers' => [
-                'Authorization' => 'Basic ' . $this->credentials,
-            ],
-        ])->toArray(false);
+        $details['datatrans'] = $response;
+        $payment->setDetails($details);
+        $model = $request->getModel();
+        if ($model instanceof \ArrayAccess) {
+            $model['datatrans'] = $response;
+        }
 
-        $payment->addDetail('datatrans', $requestData);
+        $status = $response['status'] ?? null;
+        $verified = $this->matchesPayment($payment, $response);
 
-        match ($requestData['status'] ?? '') {
-            'settled' => $request->markCaptured(),
-            'canceled' => $request->markCanceled(),
-            'failed' => $request->markFailed(),
+        match (true) {
+            DatatransApi::isCapturedStatus($status) && $verified => $request->markCaptured(),
+            DatatransApi::isAuthorizedStatus($status) && $verified => $request->markAuthorized(),
+            $status === 'canceled' => $request->markCanceled(),
+            $status === 'failed' => $request->markFailed(),
+            $status === 'initialized' => $request->markNew(),
             default => $request->markUnknown(),
         };
     }
@@ -96,5 +118,63 @@ class StatusAction implements ActionInterface
             && method_exists($request, 'getFirstModel')
             && $request->getFirstModel() instanceof SyliusPaymentInterface
         ;
+    }
+
+    private function findPaidPreviousTransaction(SyliusPaymentInterface $payment, array $details, string $transactionId, bool &$unknown): ?array
+    {
+        $paid = null;
+        foreach (DatatransApi::getTransactionIds($details) as $previousTransactionId) {
+            if ($previousTransactionId === $transactionId) {
+                continue;
+            }
+            $response = $this->fetchTransaction($previousTransactionId);
+            if (!is_string($response['status'] ?? null)) {
+                $unknown = true;
+                continue;
+            }
+            if (!$this->isPaid($response['status'])) {
+                continue;
+            }
+            if ($this->matchesPayment($payment, $response)) {
+                return $response;
+            }
+            $paid ??= $response;
+        }
+
+        return $paid;
+    }
+
+    private function fetchTransaction(string $transactionId): ?array
+    {
+        try {
+            return $this->getHttpClient()->request('GET', '/v1/transactions/' . rawurlencode($transactionId), [
+                'base_uri' => rtrim($this->endpoint, '/'),
+                'headers' => [
+                    'Authorization' => 'Basic ' . $this->credentials,
+                ],
+            ])->toArray(false);
+        } catch (ExceptionInterface $exception) {
+            return null;
+        }
+    }
+
+    private function isPaid(mixed $status): bool
+    {
+        return is_string($status) && (DatatransApi::isCapturedStatus($status) || DatatransApi::isAuthorizedStatus($status));
+    }
+
+    private function matchesPayment(SyliusPaymentInterface $payment, array $response): bool
+    {
+        if (isset($response['currency']) && $response['currency'] !== $payment->getCurrencyCode()) {
+            return false;
+        }
+        $amount = $response['detail']['settle']['amount'] ?? $response['detail']['authorize']['amount'] ?? null;
+
+        return $amount === null || (int) $amount === $payment->getAmount();
+    }
+
+    private function getHttpClient(): HttpClientInterface
+    {
+        return $this->httpClient ??= HttpClient::create();
     }
 }
