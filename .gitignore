@@ -5,10 +5,8 @@
 /etc/build/*
 !/etc/build/.gitignore
 
-/tests/Application/yarn.lock
-
-/behat.yml
-/phpspec.yml
+/.phpunit.cache/
+/.phpunit.result.cache
 
 .dde
 .travis.yml

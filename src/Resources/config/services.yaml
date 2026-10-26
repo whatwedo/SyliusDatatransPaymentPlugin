@@ -1,0 +1,39 @@
+services:
+    whatwedo.datatrans_payment:
+        class: Payum\Core\Bridge\Symfony\Builder\GatewayFactoryBuilder
+        arguments:
+            - Whatwedo\SyliusDatatransPaymentPlugin\Payum\DatatransPaymentGatewayFactory
+        tags:
+            - { name: payum.gateway_factory_builder, factory: datatrans_payment }
+
+    Whatwedo\SyliusDatatransPaymentPlugin\Form\Type\DatatransPaymentGatewayConfigurationType:
+        tags:
+            - { name: sylius.gateway_configuration_type, type: datatrans_payment, label: Datatrans Payment }
+            - { name: form.type }
+
+    Whatwedo\SyliusDatatransPaymentPlugin\Payum\Action\CaptureAction:
+        public: true
+        tags:
+            - { name: payum.action, factory: datatrans_payment, alias: payum.action.capture }
+
+    Whatwedo\SyliusDatatransPaymentPlugin\Controller\PayFromLinkController:
+        public: true
+        arguments:
+            - '@doctrine'
+            - '@?http_client'
+            - '@sylius.repository.payment'
+        calls:
+            - [setContainer, ['@Psr\Container\ContainerInterface']]
+        tags:
+            - { name: controller.service_arguments }
+            - { name: container.service_subscriber }
+
+    Whatwedo\SyliusDatatransPaymentPlugin\Command\CheckForDatatransPaymentStatusCommand:
+        public: true
+        arguments:
+            - '@sylius.repository.payment'
+            - '@SM\Factory\Factory'
+            - '@doctrine.orm.default_entity_manager'
+            - '@?http_client'
+        tags:
+            - { name: console.command }

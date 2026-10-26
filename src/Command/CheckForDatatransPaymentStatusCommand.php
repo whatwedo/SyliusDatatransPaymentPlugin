@@ -28,100 +28,167 @@
 namespace Whatwedo\SyliusDatatransPaymentPlugin\Command;
 
 use Doctrine\ORM\EntityManagerInterface;
+use Payum\Core\Request\GetHumanStatus;
 use SM\Factory\Factory;
+use Sylius\Abstraction\StateMachine\StateMachineInterface;
+use Sylius\Component\Core\Model\PaymentInterface;
 use Sylius\Component\Core\Repository\PaymentRepositoryInterface;
-use Sylius\Component\Payment\Model\PaymentInterface;
 use Sylius\Component\Payment\PaymentTransitions;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
-use Symfony\Component\HttpClient\HttpClient;
+use Symfony\Contracts\HttpClient\HttpClientInterface;
+use Whatwedo\SyliusDatatransPaymentPlugin\Payum\Action\StatusAction;
 use Whatwedo\SyliusDatatransPaymentPlugin\Payum\DatatransApi;
+use Whatwedo\SyliusDatatransPaymentPlugin\Payum\DatatransPaymentGatewayFactory;
 
 #[AsCommand('whatwedo:sylius-datatrans-payment:check-payment-status', 'Check the payment status for Datatrans')]
 class CheckForDatatransPaymentStatusCommand extends Command
 {
     private PaymentRepositoryInterface $paymentRepository;
 
-    private Factory $smFactory;
+    private Factory|StateMachineInterface $smFactory;
 
     private EntityManagerInterface $entityManager;
 
+    private ?HttpClientInterface $httpClient;
+
     public function __construct(
         PaymentRepositoryInterface $paymentRepository,
-        Factory $smFactory,
+        Factory|StateMachineInterface $smFactory,
         EntityManagerInterface $entityManager,
+        ?HttpClientInterface $httpClient = null,
     ) {
         parent::__construct();
         $this->paymentRepository = $paymentRepository;
         $this->smFactory = $smFactory;
         $this->entityManager = $entityManager;
+        $this->httpClient = $httpClient;
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
-
         $payments = $this->paymentRepository->createQueryBuilder('p')
-            ->where('p.state = :status')
-            ->andWhere('p.details LIKE :details')
-            ->setParameters([
-                'status' => PaymentInterface::STATE_NEW,
-                'details' => '%"transactionId":"%"%',
-            ])->getQuery()
+            ->innerJoin('p.method', 'm')
+            ->innerJoin('m.gatewayConfig', 'gc')
+            ->where('p.state IN (:states)')
+            ->andWhere('gc.factoryName = :factoryName')
+            ->setParameter('states', [PaymentInterface::STATE_NEW, PaymentInterface::STATE_AUTHORIZED])
+            ->setParameter('factoryName', DatatransPaymentGatewayFactory::FACTORY_NAME)
+            ->getQuery()
             ->getResult()
         ;
 
         /** @var PaymentInterface $payment */
         foreach ($payments as $payment) {
+            if (DatatransApi::getTransactionIds($payment->getDetails()) === []) {
+                continue;
+            }
+
             $output->writeln('processing payment: ' . $payment->getId());
-            $config = $payment->getMethod()->getGatewayConfig()->getConfig();
-            $api = new DatatransApi(
-                $config['merchant_id'],
-                $config['password'] ?? throw new \InvalidArgumentException('Since 2.0.0 The "password" config option is required. To get the password, login to the dashboard (https://admin.sandbox.datatrans.com/) and navigate to the security settings under UPP Administration > Security.'),
-                $config['endpoint'],
-                $config['sign'],
-                $config['generate_link'],
-                $config['payment_methods'],
-                $config['hmac_sha256'] ?? false,
-            );
-            $client = HttpClient::createForBaseUri($api->getEndpoint());
-            $requestData = $client->request('GET', '/v1/transactions/' . $payment->getDetails()['transactionId'], [
-                'headers' => [
-                    'Authorization' => 'Basic ' . $api->getCredentials(),
-                ],
-            ])->toArray(false);
-            $payment->addDetail('datatrans', $requestData);
-            $machine = $this->smFactory->get($payment, PaymentTransitions::GRAPH);
-            $status = $requestData['status'] ?? '';
-            if ($status === 'settled' && $machine->can(PaymentTransitions::TRANSITION_COMPLETE)) {
-                $machine->apply(PaymentTransitions::TRANSITION_COMPLETE);
-                $output->writeln('Payment ' . $payment->getId() . ' completed.');
-                continue;
-            }
+            try {
+                $this->checkPayment($payment, $output);
+                $this->entityManager->flush();
+            } catch (\Throwable $exception) {
+                $output->writeln('<error>Payment ' . $payment->getId() . ' could not be checked: ' . $exception->getMessage() . '</error>');
+                if (!$this->entityManager->isOpen()) {
+                    $output->writeln('<error>The entity manager is closed, remaining payments are not checked.</error>');
 
-            if ($status === 'canceled' && $machine->can(PaymentTransitions::TRANSITION_CANCEL)) {
-                $machine->apply(PaymentTransitions::TRANSITION_CANCEL);
-                $output->writeln('Payment ' . $payment->getId() . ' canceled.');
-                continue;
-            }
-            if ($status === 'failed' && $machine->can(PaymentTransitions::TRANSITION_FAIL)) {
-                $machine->apply(PaymentTransitions::TRANSITION_FAIL);
-                $output->writeln('Payment ' . $payment->getId() . ' failed.');
-                continue;
-            }
-
-            // if older than 2 weeks, cancel the payment
-            if ($payment->getCreatedAt() < new \DateTime('-2 weeks') && $machine->can(PaymentTransitions::TRANSITION_CANCEL)) {
-                $machine->apply(PaymentTransitions::TRANSITION_CANCEL);
-                $output->writeln('Payment ' . $payment->getId() . ' canceled due to timeout.');
-            } else {
-                $output->writeln('Payment ' . $payment->getId() . ' status waiting ... ('.$status.')');
+                    return self::FAILURE;
+                }
+                $this->discardChanges($payment);
             }
         }
 
-        $this->entityManager->flush();
-
         return self::SUCCESS;
+    }
+
+    private function checkPayment(PaymentInterface $payment, OutputInterface $output): void
+    {
+        $api = DatatransApi::fromConfig($payment->getMethod()->getGatewayConfig()->getConfig(), $this->httpClient);
+
+        $details = $payment->getDetails();
+        unset($details['datatrans']);
+        $payment->setDetails($details);
+
+        $status = new GetHumanStatus($payment);
+        (new StatusAction($api->getEndpoint(), $api->getCredentials(), $this->httpClient))->execute($status);
+
+        $response = $payment->getDetails()['datatrans'] ?? null;
+        $datatransStatus = $response['status'] ?? null;
+
+        $transition = match (true) {
+            $status->isCaptured() => PaymentTransitions::TRANSITION_COMPLETE,
+            $status->isAuthorized() && $payment->getState() === PaymentInterface::STATE_NEW => PaymentTransitions::TRANSITION_AUTHORIZE,
+            $status->isCanceled() => PaymentTransitions::TRANSITION_CANCEL,
+            $status->isFailed() => PaymentTransitions::TRANSITION_FAIL,
+            default => null,
+        };
+        if ($transition !== null && $this->applyTransition($payment, $transition)) {
+            $output->writeln('Payment ' . $payment->getId() . ' ' . $transition . ' applied (' . $datatransStatus . ').');
+            return;
+        }
+
+        if (
+            $payment->getState() === PaymentInterface::STATE_NEW
+            && DatatransApi::isPendingStatus($datatransStatus)
+            && $this->isTimedOut($payment, $response)
+            && $this->applyTransition($payment, PaymentTransitions::TRANSITION_CANCEL)
+        ) {
+            $output->writeln('Payment ' . $payment->getId() . ' canceled due to timeout.');
+            return;
+        }
+
+        $output->writeln('Payment ' . $payment->getId() . ' status waiting ... (' . $datatransStatus . ')');
+    }
+
+    private function isTimedOut(PaymentInterface $payment, array $response): bool
+    {
+        $start = $payment->getCreatedAt();
+        $expires = $response['detail']['init']['expires'] ?? null;
+        if (is_string($expires)) {
+            try {
+                $expires = new \DateTimeImmutable($expires);
+            } catch (\Exception) {
+                $expires = null;
+            }
+            if ($expires !== null && ($start === null || $expires > $start)) {
+                $start = $expires;
+            }
+        }
+
+        return $start !== null && $start < new \DateTimeImmutable('-2 weeks');
+    }
+
+    private function discardChanges(PaymentInterface $payment): void
+    {
+        try {
+            $this->entityManager->refresh($payment);
+            if ($payment->getOrder() !== null) {
+                $this->entityManager->refresh($payment->getOrder());
+            }
+        } catch (\Throwable) {
+        }
+    }
+
+    private function applyTransition(PaymentInterface $payment, string $transition): bool
+    {
+        if ($this->smFactory instanceof StateMachineInterface) {
+            if (!$this->smFactory->can($payment, PaymentTransitions::GRAPH, $transition)) {
+                return false;
+            }
+            $this->smFactory->apply($payment, PaymentTransitions::GRAPH, $transition);
+
+            return true;
+        }
+
+        $machine = $this->smFactory->get($payment, PaymentTransitions::GRAPH);
+        if (!$machine->can($transition)) {
+            return false;
+        }
+        $machine->apply($transition);
+
+        return true;
     }
 }
